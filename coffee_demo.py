@@ -89,30 +89,39 @@ def confident_image_query(detector, image, threshold=0.5, timeout=10):
     else:
         return None
 
+
+def find_or_create_detector(desired_detectors):
+    detectors = {}
+
+    # find the desired detectors if they exist
+    try:
+        available_detectors = gl.list_detectors()
+    except ApiError as e:
+        print(f'Error: {e}')
+        exit(-1)
+
+    for det in available_detectors.results:
+        if det.name in desired_detectors:
+            detectors[det.name] = det
+            print(f'found detector for : {det.name}')
+
+    # create new detectors as necessary
+    for det_name in desired_detectors.keys():
+        if det_name not in detectors:
+            detectors[det_name] = gl.create_detector(det_name, desired_detectors[det_name])
+            print(f'created detector for : {det_name}')
+
+    return detectors
+
+
+
 # set a list of desired detectors
 desired_detectors = { 'coffee_present' : 'are coffee grounds in the round filter area (not just residual dirt)', \
                       'is_rinsing' : 'does the display show "Rinsing"', \
                       'is_brewing' : 'does the display show "Brewing"' \
                         }
-detectors = {}
 
-# find the desired detectors if they exist
-try:
-    available_detectors = gl.list_detectors()
-except ApiError as e:
-    print(f'Error: {e}')
-    exit(-1)
-
-for det in available_detectors.results:
-    if det.name in desired_detectors:
-        detectors[det.name] = det
-        print(f'found detector for : {det.name}')
-
-# create new detectors as necessary
-for det_name in desired_detectors.keys():
-    if det_name not in detectors:
-        detectors[det_name] = gl.create_detector(det_name, desired_detectors[det_name])
-        print(f'created detector for : {det_name}')
+detectors = find_or_create_detector(desired_detectors)
 
 print(f'configured {len(detectors)} detectors : ')
 for det in detectors.values():
@@ -129,7 +138,7 @@ while True:
     if state == 'idle':
         post_coffee_status(f'waiting for coffee grounds to be added')
         while True:
-            result = confident_image_query(detectors['coffee_present'].id, get_rtsp_image(rtsp_url), threshold=0.8, timeout=10)
+            result = confident_image_query(detectors['coffee_present'].id, get_rtsp_image(rtsp_url), threshold=0.75, timeout=10)
             if (result is not None) and (result == 'PASS'):
                 break
         state = 'grounds_added'
@@ -151,7 +160,7 @@ while True:
     if state == 'brewing':
         print(f'waiting for grounds to clear')
         while True:
-            result = confident_image_query(detectors['coffee_present'].id, get_rtsp_image(rtsp_url), threshold=0.8, timeout=10)
+            result = confident_image_query(detectors['coffee_present'].id, get_rtsp_image(rtsp_url), threshold=0.75, timeout=10)
             if (result is not None) and (result == 'FAIL'):
                 state = 'waiting_for_rinse'
                 break
@@ -176,7 +185,7 @@ while True:
     if state == 'error':
         post_coffee_status(f'error state, waiting for a little while to see if things clear up')
         while True:
-            result = confident_image_query(detectors['coffee_present'].id, get_rtsp_image(rtsp_url), threshold=0.8, timeout=10)
+            result = confident_image_query(detectors['coffee_present'].id, get_rtsp_image(rtsp_url), threshold=0.75, timeout=10)
             if (result is not None) and (result == 'FAIL'):
                 state = 'idle'
                 break
