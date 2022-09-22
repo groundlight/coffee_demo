@@ -20,6 +20,9 @@ rtsp_url = f'rtsp://admin:admin@10.44.3.34/cam/realmonitor?channel=1&subtype=0'
 
 #helper functions
 
+def post_coffee_status(s):
+    print(s)
+
 def get_rtsp_image(rtsp_url, x1=0, y1=0, x2=0, y2=0):
     
     #print(f'pulling frame from {rtsp_url}')
@@ -96,16 +99,16 @@ print(f'assuming machine is idle to start!')
 while True:
 
     if state == 'idle':
-        print(f'waiting for coffee grounds to be added')
+        post_coffee_status(f'waiting for coffee grounds to be added')
         while True:
-            result = confident_image_query(detectors['coffee_present'].id, get_rtsp_image(rtsp_url), threshold=0.9, timeout=10)
+            result = confident_image_query(detectors['coffee_present'].id, get_rtsp_image(rtsp_url), threshold=0.8, timeout=10)
             if (result is not None) and (result == 'PASS'):
                 break
         state = 'grounds_added'
         possible_brew_start = time.time()
 
     if state == 'grounds_added':
-        print(f'grounds added, waiting for brew start')
+        post_coffee_status(f'grounds added, waiting for brew start')
         while True:
             result = confident_image_query(detectors['is_brewing'].id, get_rtsp_image(rtsp_url, x1=920, y1=1200, x2=1790, y2=1600), threshold=0.8, timeout=10)
             if (result is not None) and (result == 'PASS'):
@@ -113,7 +116,7 @@ while True:
                 state = 'brewing'
                 break
             if (time.time() - possible_brew_start) > 120:
-                print(f'no brew cycle detected, maybe someone left grounds in the machine?')
+                post_coffee_status(f'no brew cycle detected, maybe someone left grounds in the machine?')
                 state = 'error'
                 break
 
@@ -125,7 +128,7 @@ while True:
                 state = 'waiting_for_rinse'
                 break
             if (time.time() - brew_start) > 200:
-                print(f'looks like we still have grounds, stop watching this and rinse the machine!')
+                post_coffee_status(f'looks like we still have grounds, stop watching this and rinse the machine!')
                 state = 'error'
                 break
 
@@ -138,12 +141,12 @@ while True:
                 state = 'idle'
                 break
             if (time.time() - brew_start) > 200:
-                print(f'almost there!  just rinse the machine and we can start again!')
+                post_coffee_status(f'almost there!  just rinse the machine and we can start again!')
                 state = 'error'
                 break
     
     if state == 'error':
-        print(f'error state, waiting for a little while to see if things clear up')
+        post_coffee_status(f'error state, waiting for a little while to see if things clear up')
         while True:
             result = confident_image_query(detectors['coffee_present'].id, get_rtsp_image(rtsp_url), threshold=0.8, timeout=10)
             if (result is not None) and (result == 'FAIL'):
