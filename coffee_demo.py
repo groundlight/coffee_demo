@@ -12,16 +12,44 @@ set GROUNDLIGHT_API_TOKEN to your API token in the environment
 import cv2
 import io
 import time
+import json
+import sys
+import requests
 from imgcat import imgcat
 from groundlight import Groundlight
 
 gl = Groundlight() # assumes API key is set by environment variable GROUNDLIGHT_API_TOKEN
 rtsp_url = f'rtsp://admin:admin@10.44.3.34/cam/realmonitor?channel=1&subtype=0'
+slack_url = 'https://hooks.slack.com/services/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'
 
 #helper functions
 
 def post_coffee_status(s):
     print(s)
+    slack_data = {
+        "username" : "CoffeeBot",
+        "icon_emoji" : ":coffee:",
+        "channel" : "#coffeestatus",
+        "attachments": [
+            {
+                "color": "#9733EE",
+                "fields": [
+                    {
+                        "title": "Coffee Status",
+                        "value": s,
+                        "short": "false",
+                    }
+                ]
+            }
+        ]
+    }
+    byte_length = str(sys.getsizeof(slack_data))
+    headers = {'Content-Type': "application/json", 'Content-Length': byte_length}
+    response = requests.post(slack_url, data=json.dumps(slack_data), headers=headers)
+    if response.status_code != 200:
+        raise Exception(response.status_code, response.text)
+
+
 
 def get_rtsp_image(rtsp_url, x1=0, y1=0, x2=0, y2=0):
     
