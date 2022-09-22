@@ -141,10 +141,11 @@ while True:
             query_time = time.time()
             result = confident_image_query(detectors['coffee_present'].id, get_rtsp_image(rtsp_url), threshold=0.75, timeout=10)
             if (result is not None) and (result == 'PASS'):
+                state = 'grounds_added'
+                possible_brew_start = time.time()
                 break
             time.sleep(query_time + 10 - time.time())
-        state = 'grounds_added'
-        possible_brew_start = time.time()
+        
 
     if state == 'grounds_added':
         post_coffee_status(f'grounds added, waiting for brew start')
