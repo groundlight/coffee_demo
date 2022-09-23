@@ -76,6 +76,7 @@ def confident_image_query(detector, image, threshold=0.5, timeout=10):
     iq = gl.submit_image_query(detector, image)
     elapsed = 0
     retry_interval = 0.5
+    start_time = time.time()
     #print(f'{iq=}')
     while iq.result.confidence < threshold:
         time.sleep(retry_interval)
@@ -83,6 +84,8 @@ def confident_image_query(detector, image, threshold=0.5, timeout=10):
         iq = gl.get_image_query(id=iq.id)
         #print(f'{iq.result=}')
         if iq.result.confidence is None:
+            break
+        if time.time() > start_time + timeout:
             break
     if (iq.result.confidence is None) or (iq.result.confidence >= threshold):
         return iq.result.label
