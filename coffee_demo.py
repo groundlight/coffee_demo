@@ -161,7 +161,7 @@ while True:
                 break
 
     if state == 'brewing':
-        print(f'waiting for grounds to clear')
+        print(f'now brewing. waiting for grounds to clear')
         while True:
             result = confident_image_query(detectors['coffee_present'].id, get_rtsp_image(rtsp_url), threshold=0.75, timeout=10)
             if (result is not None) and (result == 'FAIL'):
@@ -173,7 +173,7 @@ while True:
                 break
 
     if state == 'waiting_for_rinse':
-        print(f'waiting for rinse')
+        print(f'finished brewing. waiting for rinse')
         while True:
             result = confident_image_query(detectors['is_rinsing'].id, get_rtsp_image(rtsp_url, x1=920, y1=1200, x2=1790, y2=1600), threshold=0.8, timeout=10)
             if (result is not None) and (result == 'PASS'):
