@@ -144,8 +144,8 @@ while True:
                 state = 'grounds_added'
                 possible_brew_start = time.time()
                 break
-            time.sleep(query_time + 10 - time.time())
-        
+            required_delay = query_time + 10 - time.time()
+            time.sleep(max(required_delay, 0))
 
     if state == 'grounds_added':
         post_coffee_status(f'grounds added, waiting for brew start')
