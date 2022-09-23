@@ -73,10 +73,10 @@ def confident_image_query(detector, image, threshold=0.5, timeout=10):
     '''
     query detector and wait for confidence above threshold, return None if timeout
     '''
+    start_time = time.time()
     iq = gl.submit_image_query(detector, image)
     elapsed = 0
     retry_interval = 0.5
-    start_time = time.time()
     #print(f'{iq=}')
     while iq.result.confidence < threshold:
         time.sleep(retry_interval)
@@ -87,6 +87,14 @@ def confident_image_query(detector, image, threshold=0.5, timeout=10):
             break
         if time.time() > start_time + timeout:
             break
+    
+    if (iq.result.confidence is None):
+        print(f'HUMAN CONFIDENT  after {(time.time()-start_time):.2f}s {(100):.1f}%/{threshold*100}% {iq.result.label} {iq.id=}')
+    elif (iq.result.confidence >= threshold):
+        print(f'ML    CONFIDENT  after {(time.time()-start_time):.2f}s {(iq.result.confidence*100):.1f}%/{threshold*100}% {iq.result.label} {iq.id=}')
+    else:
+        print(f'  NOT CONFIDENT  after {(time.time()-start_time):.2f}s {(iq.result.confidence*100):.1f}%/{threshold*100}% {iq.result.label} {iq.id=}')
+ 
     if (iq.result.confidence is None) or (iq.result.confidence >= threshold):
         return iq.result.label
     else:
@@ -180,7 +188,7 @@ while True:
         while True:
             result = confident_image_query(detectors['is_rinsing'].id, get_rtsp_image(rtsp_url, x1=920, y1=1200, x2=1790, y2=1600), threshold=0.8, timeout=10)
             if (result is not None) and (result == 'PASS'):
-                print(f'great job. you remembered to rinse the machine!')
+                post_coffee_status(f'great job. someone remembered to rinse the machine!')
                 state = 'idle'
                 break
             if (time.time() - brew_start) > 200:
