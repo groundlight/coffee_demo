@@ -46,7 +46,14 @@ def post_status(msg: str):
 def play_sound(filename: str):
     """Plays a sound file"""
     print(f"Playing sound file {filename}")
-    os.system(f"mpg321 {filename}")  # assumes linux
+    if sys.platform == "darwin":
+        os.system(f"afplay {filename}")
+    elif sys.platform == "linux":
+        os.system(f"mpg321 {filename}")
+    elif sys.platform == "win32":
+        os.system(f"start {filename}")
+    else:
+        print(f"don't know how to play sound on {sys.platform}")
 
 
 def post_slack_message(msg: str):
