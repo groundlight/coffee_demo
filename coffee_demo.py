@@ -67,14 +67,18 @@ def post_slack_message(msg: str):
         raise Exception(response.status_code, response.text)
 
 
-def get_rtsp_image(rtsp_url, x1=0, y1=0, x2=0, y2=0):
-    """Fetches an image from an RTSP stream and returns it as a BytesIO object"""
+def get_rtsp_image(rtsp_url:str, x1:int=0, y1:int=0, x2:int=0, y2:int=0):
+    """Fetches an image from an RTSP stream, crops it, compresses as JPEG,
+    and returns it as a BytesIO object"""
     cap = cv2.VideoCapture(rtsp_url)
 
     if cap.isOpened():
         ret, frame = cap.read()
         if x1 + x2 + y1 + y2 > 0:
             frame = frame[y1:y2, x1:x2]
+
+        # Swap the color channels to BGR
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         if ret:
             is_success, buffer = cv2.imencode(".jpg", frame)
             imgcat(frame)
@@ -90,19 +94,7 @@ def confident_image_query(detector, image, threshold=0.5, timeout=10):
     query detector and wait for confidence above threshold, return None if timeout
     """
     start_time = time.time()
-    iq = gl.submit_image_query(detector, image)
-    elapsed = 0
-    retry_interval = 0.5
-    # print(f'{iq=}')
-    while iq.result.confidence < threshold:
-        time.sleep(retry_interval)
-        elapsed += retry_interval
-        iq = gl.get_image_query(id=iq.id)
-        # print(f'{iq.result=}')
-        if iq.result.confidence is None:
-            break
-        if time.time() > start_time + timeout:
-            break
+    iq = gl.submit_image_query(detector, image, wait=60)
 
     if iq.result.confidence is None:
         print(
