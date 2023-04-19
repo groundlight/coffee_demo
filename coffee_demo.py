@@ -43,6 +43,12 @@ def post_status(msg: str):
         post_slack_message(msg)
 
 
+def play_sound(filename: str):
+    """Plays a sound file"""
+    print(f"Playing sound file {filename}")
+    os.system(f"mpg321 {filename}")  # assumes linux
+
+
 def post_slack_message(msg: str):
     """Posts a message to slack"""
 
@@ -70,7 +76,9 @@ def post_slack_message(msg: str):
         raise Exception(response.status_code, response.text)
 
 
-def get_rtsp_image(rtsp_url:str, x1:int=0, y1:int=0, x2:int=0, y2:int=0) -> Optional[io.BytesIO]:
+def get_rtsp_image(
+    rtsp_url: str, x1: int = 0, y1: int = 0, x2: int = 0, y2: int = 0
+) -> Optional[io.BytesIO]:
     """Fetches an image from an RTSP stream, crops it, compresses as JPEG,
     and returns it as a BytesIO object"""
     cap = cv2.VideoCapture(rtsp_url)
@@ -99,6 +107,25 @@ def get_rtsp_image(rtsp_url:str, x1:int=0, y1:int=0, x2:int=0, y2:int=0) -> Opti
             cap.release()
 
 
+def map_result(iq, threshold: float) -> str:
+    """Interprets the result of an image query and returns a string
+    representing the answer, or "UNSURE" if the confidence is below the threshold.
+    Maps old-style PASS/FAIL labels to YES/NO.
+    """
+    if (iq.result.confidence is None) or (iq.result.confidence >= threshold):
+        answer = "UNSURE"
+    else:
+        answer = iq.result.label
+
+    ANSWER_MAP = {
+        "PASS": "YES",
+        "FAIL": "NO",
+    }
+    if answer in ANSWER_MAP:
+        answer = ANSWER_MAP[answer]
+    return answer
+
+
 def confident_image_query(detector, image, threshold=0.5, timeout=10):
     """
     query detector and wait for confidence above threshold, return None if timeout
@@ -121,13 +148,10 @@ def confident_image_query(detector, image, threshold=0.5, timeout=10):
             f"  NOT CONFIDENT  after {elapsed:.2f}s {(iq.result.confidence*100):.1f}%/{threshold*100}% {iq.result.label} {iq.id=}"
         )
 
-    if (iq.result.confidence is None) or (iq.result.confidence >= threshold):
-        return iq.result.label
-    else:
-        return None
+    return map_result(iq, threshold)
 
 
-def find_or_create_detector(desired_detectors:dict) -> dict:
+def find_or_create_detector(desired_detectors: dict) -> dict:
     """finds or creates the desired detectors and returns them in a dict,
     keyed by detector name"""
     detectors = {}
@@ -173,11 +197,12 @@ while True:
         threshold=0.75,
         timeout=90,
     )
-    if result == "PASS":
+    if result == "YES":
         count_coffee_present += 1
         print(f"Coffee present ({count_coffee_present} times in a row)")
         if count_coffee_present >= num_checks_before_notification:
             post_status(f"Coffee maker needs rinsing!")
+            play_sound("audio/coffee_maker_needs_rinsing.mp3")
     else:
         count_coffee_present = 0
         print("No coffee present")
