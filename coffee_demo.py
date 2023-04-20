@@ -117,9 +117,9 @@ def get_rtsp_image(
 def map_result(iq, threshold: float) -> str:
     """Interprets the result of an image query and returns a string
     representing the answer, or "UNSURE" if the confidence is below the threshold.
-    Maps old-style PASS/FAIL labels to YES/NO.
+    Maps old-style PASS/FAIL labels to YES/NO if needed.
     """
-    if (iq.result.confidence is None) or (iq.result.confidence >= threshold):
+    if (iq.result.confidence is not None) and (iq.result.confidence < threshold):
         answer = "UNSURE"
     else:
         answer = iq.result.label
