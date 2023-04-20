@@ -9,6 +9,7 @@ import json
 import os
 import sys
 import time
+import traceback
 from typing import Optional
 
 from groundlight import Groundlight
@@ -40,12 +41,16 @@ def post_status(msg: str):
     """Posts a status message to slack if configured, or else just prints it"""
     print(msg)
     if slack_url:
-        post_slack_message(msg)
+        try:
+            post_slack_message(msg)
+        except Exception:
+            traceback.print_exc()
+            print("failed to post to slack, continuing...")
 
 
 def play_sound(filename: str):
     """Plays a sound file"""
-    print(f"Playing sound file {filename}")
+    print(f"Playing sound file {filename} for system {sys.platform}")
     if sys.platform == "darwin":
         os.system(f"afplay {filename}")
     elif sys.platform == "linux":
@@ -208,8 +213,8 @@ while True:
         count_coffee_present += 1
         print(f"Coffee present ({count_coffee_present} times in a row)")
         if count_coffee_present >= num_checks_before_notification:
-            post_status(f"Coffee maker needs rinsing!")
             play_sound("audio/coffee_maker_needs_rinsing.mp3")
+            post_status(f"Coffee maker needs rinsing!")
     else:
         count_coffee_present = 0
         print("No coffee present")
