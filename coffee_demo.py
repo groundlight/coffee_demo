@@ -85,7 +85,7 @@ def post_slack_message(msg: str):
     headers = {"Content-Type": "application/json", "Content-Length": byte_length}
     response = requests.post(slack_url, data=json.dumps(slack_data), headers=headers)
     if response.status_code != 200:
-        raise Exception(response.status_code, response.text)
+        raise RuntimeError(response.status_code, response.text)
 
 
 def get_rtsp_image(
@@ -138,12 +138,17 @@ def map_result(iq, threshold: float) -> str:
     return answer
 
 
-def confident_image_query(detector, image, threshold=0.5, timeout=10):
+def confident_image_query(detector, image, threshold=0.5, timeout=10) -> Optional[str]:
     """
-    query detector and wait for confidence above threshold, return None if timeout
+    query detector and wait for confidence above threshold, return None on problem
     """
     start_time = time.time()
-    iq = gl.submit_image_query(detector, image, wait=timeout)
+    try:
+        iq = gl.submit_image_query(detector, image, wait=timeout)
+    except Exception:
+        traceback.print_exc()
+        time.sleep(10)  # make sure we don't get stuck in a fast loop
+        return None
 
     elapsed = time.time() - start_time
 
@@ -202,7 +207,14 @@ for det in detectors.values():
 count_coffee_present = 0
 
 while True:
-    img = get_rtsp_image(rtsp_url, x1=1200, x2=1800, y1=400, y2=1000)
+    try:
+        img = get_rtsp_image(rtsp_url, x1=1200, x2=1800, y1=400, y2=1000)
+    except Exception:
+        traceback.print_exc()
+        print("Failed to capture image")
+        time.sleep(delay_between_checks)
+        continue
+
     result = confident_image_query(
         detectors["coffee_present"].id,
         img,
