@@ -9,17 +9,21 @@ import json
 import os
 import sys
 import time
+import traceback
+from typing import Optional
 
 from groundlight import Groundlight
 from imgcat import imgcat
 import cv2
 import requests
 
-gl = (
-    Groundlight()
-)  # assumes API key is set by environment variable GROUNDLIGHT_API_TOKEN
+gl = Groundlight()  # API key should be in environment variable
 rtsp_url = os.environ.get("RTSP_URL")
 slack_url = os.environ.get("SLACK_URL")
+
+delay_between_checks = 60  # seconds
+num_checks_before_notification = 3
+
 
 if not rtsp_url:
     print("please set RTSP_URL environment variable")
@@ -37,7 +41,24 @@ def post_status(msg: str):
     """Posts a status message to slack if configured, or else just prints it"""
     print(msg)
     if slack_url:
-        post_slack_message(msg)
+        try:
+            post_slack_message(msg)
+        except Exception:
+            traceback.print_exc()
+            print("failed to post to slack, continuing...")
+
+
+def play_sound(filename: str):
+    """Plays a sound file"""
+    print(f"Playing sound file {filename} for system {sys.platform}")
+    if sys.platform == "darwin":
+        os.system(f"afplay {filename}")
+    elif sys.platform == "linux":
+        os.system(f"mpg321 {filename}")
+    elif sys.platform == "win32":
+        os.system(f"start {filename}")
+    else:
+        print(f"don't know how to play sound on {sys.platform}")
 
 
 def post_slack_message(msg: str):
@@ -64,66 +85,96 @@ def post_slack_message(msg: str):
     headers = {"Content-Type": "application/json", "Content-Length": byte_length}
     response = requests.post(slack_url, data=json.dumps(slack_data), headers=headers)
     if response.status_code != 200:
-        raise Exception(response.status_code, response.text)
+        raise RuntimeError(response.status_code, response.text)
 
 
-def get_rtsp_image(rtsp_url:str, x1:int=0, y1:int=0, x2:int=0, y2:int=0):
+def get_rtsp_image(
+    rtsp_url: str, x1: int = 0, y1: int = 0, x2: int = 0, y2: int = 0
+) -> Optional[io.BytesIO]:
     """Fetches an image from an RTSP stream, crops it, compresses as JPEG,
     and returns it as a BytesIO object"""
     cap = cv2.VideoCapture(rtsp_url)
 
-    if cap.isOpened():
-        ret, frame = cap.read()
-        if x1 + x2 + y1 + y2 > 0:
-            frame = frame[y1:y2, x1:x2]
+    try:
+        if cap.isOpened():
+            ret, frame = cap.read()
+            # Crop the frame
+            print(f"Original image size: {frame.shape[0]}x{frame.shape[1]}")
+            if x1 + x2 + y1 + y2 > 0:
+                frame = frame[y1:y2, x1:x2]
+                print(f"Post-crop image size: {frame.shape[0]}x{frame.shape[1]}")
+            else:
+                print("No crop requested")
 
-        # Swap the color channels to BGR
-        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        if ret:
-            is_success, buffer = cv2.imencode(".jpg", frame)
-            imgcat(frame)
-            return io.BytesIO(buffer)
-        else:
-            print("failed to read from stream!")
-            return None
-    cap.release()
+            if ret:
+                is_success, buffer = cv2.imencode(".jpg", frame)
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                imgcat(frame_rgb)
+                return io.BytesIO(buffer)
+            else:
+                print("failed to read from stream!")
+                return None
+    finally:
+        if cap:
+            cap.release()
 
 
-def confident_image_query(detector, image, threshold=0.5, timeout=10):
+def map_result(iq, threshold: float) -> str:
+    """Interprets the result of an image query and returns a string
+    representing the answer, or "UNSURE" if the confidence is below the threshold.
+    Maps old-style PASS/FAIL labels to YES/NO if needed.
     """
-    query detector and wait for confidence above threshold, return None if timeout
+    if (iq.result.confidence is not None) and (iq.result.confidence < threshold):
+        answer = "UNSURE"
+    else:
+        answer = iq.result.label
+
+    ANSWER_MAP = {
+        "PASS": "YES",
+        "FAIL": "NO",
+    }
+    if answer in ANSWER_MAP:
+        answer = ANSWER_MAP[answer]
+    return answer
+
+
+def confident_image_query(detector, image, threshold=0.5, timeout=10) -> Optional[str]:
+    """
+    query detector and wait for confidence above threshold, return None on problem
     """
     start_time = time.time()
-    iq = gl.submit_image_query(detector, image, wait=60)
+    try:
+        iq = gl.submit_image_query(detector, image, wait=timeout)
+    except Exception:
+        traceback.print_exc()
+        time.sleep(10)  # make sure we don't get stuck in a fast loop
+        return None
+
+    elapsed = time.time() - start_time
 
     if iq.result.confidence is None:
         print(
-            f"HUMAN CONFIDENT  after {(time.time()-start_time):.2f}s {(100):.1f}%/{threshold*100}% {iq.result.label} {iq.id=}"
+            f"HUMAN CONFIDENT  after {elapsed:.2f}s {(100):.1f}%/{threshold*100}% {iq.result.label} {iq.id=}"
         )
     elif iq.result.confidence >= threshold:
         print(
-            f"ML    CONFIDENT  after {(time.time()-start_time):.2f}s {(iq.result.confidence*100):.1f}%/{threshold*100}% {iq.result.label} {iq.id=}"
+            f"ML    CONFIDENT  after {elapsed:.2f}s {(iq.result.confidence*100):.1f}%/{threshold*100}% {iq.result.label} {iq.id=}"
         )
     else:
         print(
-            f"  NOT CONFIDENT  after {(time.time()-start_time):.2f}s {(iq.result.confidence*100):.1f}%/{threshold*100}% {iq.result.label} {iq.id=}"
+            f"  NOT CONFIDENT  after {elapsed:.2f}s {(iq.result.confidence*100):.1f}%/{threshold*100}% {iq.result.label} {iq.id=}"
         )
 
-    if (iq.result.confidence is None) or (iq.result.confidence >= threshold):
-        return iq.result.label
-    else:
-        return None
+    return map_result(iq, threshold)
 
 
-def find_or_create_detector(desired_detectors):
+def find_or_create_detector(desired_detectors: dict) -> dict:
+    """finds or creates the desired detectors and returns them in a dict,
+    keyed by detector name"""
     detectors = {}
 
     # find the desired detectors if they exist
-    try:
-        available_detectors = gl.list_detectors()
-    except ApiError as e:
-        print(f"Error: {e}")
-        exit(-1)
+    available_detectors = gl.list_detectors()
 
     for det in available_detectors.results:
         if det.name in desired_detectors:
@@ -144,8 +195,6 @@ def find_or_create_detector(desired_detectors):
 # set a list of desired detectors
 desired_detectors = {
     "coffee_present": "are coffee grounds in the round filter area (not just residual dirt)",
-    "is_rinsing": 'does the display show "Rinsing"',
-    "is_brewing": 'does the display show "Brewing"',
 }
 
 detectors = find_or_create_detector(desired_detectors)
@@ -155,99 +204,31 @@ for det in detectors.values():
     print(f"{det.id} : {det.name} / {det.query}")
     print(det)
 
-# wait for some reasonable number of labels before the detector is confident
-
-state = "idle"
-print(f"assuming machine is idle to start!")
+count_coffee_present = 0
 
 while True:
-    if state == "idle":
-        post_status(f"waiting for coffee grounds to be added")
-        while True:
-            query_time = time.time()
-            result = confident_image_query(
-                detectors["coffee_present"].id,
-                get_rtsp_image(rtsp_url),
-                threshold=0.75,
-                timeout=10,
-            )
-            if (result is not None) and (result == "PASS"):
-                state = "grounds_added"
-                possible_brew_start = time.time()
-                break
-            required_delay = query_time + 10 - time.time()
-            time.sleep(max(required_delay, 0))
+    try:
+        img = get_rtsp_image(rtsp_url, x1=1200, x2=1800, y1=400, y2=1000)
+    except Exception:
+        traceback.print_exc()
+        print("Failed to capture image")
+        time.sleep(delay_between_checks)
+        continue
 
-    if state == "grounds_added":
-        post_status(f"grounds added, waiting for brew start")
-        while True:
-            result = confident_image_query(
-                detectors["is_brewing"].id,
-                get_rtsp_image(rtsp_url, x1=920, y1=1200, x2=1790, y2=1600),
-                threshold=0.8,
-                timeout=10,
-            )
-            if (result is not None) and (result == "PASS"):
-                brew_start = time.time()
-                state = "brewing"
-                break
-            if (time.time() - possible_brew_start) > 120:
-                post_status(
-                    f"no brew cycle detected, maybe someone left grounds in the machine?"
-                )
-                state = "error"
-                break
+    result = confident_image_query(
+        detectors["coffee_present"].id,
+        img,
+        threshold=0.75,
+        timeout=90,
+    )
+    if result == "YES":
+        count_coffee_present += 1
+        print(f"Coffee present ({count_coffee_present} times in a row)")
+        if count_coffee_present >= num_checks_before_notification:
+            play_sound("audio/coffee_maker_needs_rinsing.mp3")
+            post_status(f"Coffee maker needs rinsing!")
+    else:
+        count_coffee_present = 0
+        print("No coffee present")
 
-    if state == "brewing":
-        print(f"now brewing. waiting for grounds to clear")
-        while True:
-            result = confident_image_query(
-                detectors["coffee_present"].id,
-                get_rtsp_image(rtsp_url),
-                threshold=0.75,
-                timeout=10,
-            )
-            if (result is not None) and (result == "FAIL"):
-                state = "waiting_for_rinse"
-                break
-            if (time.time() - brew_start) > 200:
-                post_status(
-                    f"looks like we still have grounds, stop watching this and rinse the machine!"
-                )
-                state = "error"
-                break
-
-    if state == "waiting_for_rinse":
-        print(f"finished brewing. waiting for rinse")
-        while True:
-            result = confident_image_query(
-                detectors["is_rinsing"].id,
-                get_rtsp_image(rtsp_url, x1=920, y1=1200, x2=1790, y2=1600),
-                threshold=0.8,
-                timeout=10,
-            )
-            if (result is not None) and (result == "PASS"):
-                post_status(f"great job. someone remembered to rinse the machine!")
-                state = "idle"
-                break
-            if (time.time() - brew_start) > 200:
-                post_status(
-                    f"almost there!  just rinse the machine and we can start again!"
-                )
-                state = "error"
-                break
-
-    if state == "error":
-        post_status(
-            "error state, waiting for a little while to see if things clear up"
-        )
-        while True:
-            result = confident_image_query(
-                detectors["coffee_present"].id,
-                get_rtsp_image(rtsp_url),
-                threshold=0.75,
-                timeout=10,
-            )
-            if (result is not None) and (result == "FAIL"):
-                state = "idle"
-                break
+    time.sleep(delay_between_checks)

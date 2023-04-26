@@ -1,6 +1,16 @@
 # Coffee machine demo
 
-Keeps an eye on the clover coffee machine, and alerts if somebody forgets to rinse.
+Keeps an eye on the clover coffee machine in the Groundlight office, and alerts if somebody forgets to rinse.
+
+This demonstrates how to use the Groundlight Python SDK to:
+- Set up a simple logic loop to watch for a specific condition
+- Fetch images from an RTSP camera
+- Run inference on the images
+- Send alerts to a Slack channel
+- Play audio alerts 
+
+![Needs rinsing](./static/coffee-present.png)
+![Already rinsed](./static/coffee-not-present.png)
 
 ## Running
 
