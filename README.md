@@ -52,11 +52,11 @@ For instructions on setting up slack webhooks, see [here](https://api.slack.com/
 poetry run python coffee_demo.py
 ```
 
-# Automatically running at boot on Mac
+# Running continuously in the background (on Mac)
 
 To automatically run at boot time in a `tmux` session, use the `com.groundlight.start_coffee.plist` plist to automatically i`start-coffee.sh` script.  
 
-## Setting up
+## Installing
 
 1. Make sure you have prerequisites such as `tmux` installed, and a `set-environment` file with your secrets.  Instructions for both are below.
 
@@ -105,6 +105,23 @@ launchctl list | grep com.groundlight.start_coffee
 
 This will show you if the service is running and its exit code. You can also check the log files specified in your plist file (e.g., `/tmp/com.groundlight.start_coffee.stdout` and `/tmp/com.groundlight.start_coffee.stderr`) for any output or errors from your script.
 
+## Seeing what's happening
+
+To connect to the tmux session and monitor the progress of the Python script, follow these steps:
+
+1. Open a terminal window.
+
+2. Connect to the tmux session by running the following command:
+
+```
+tmux attach-session -t coffee
+```
+
+Replace `coffee` with the name of the tmux session if you used a different name in your startup script.
+
+3. After connecting, you will see the output of the Python script running inside the tmux session. You can interact with the script as if it were running in a regular terminal window.
+
+4. To disconnect from the tmux session without stopping the Python script, press `Ctrl-b` followed by `d`. This will detach you from the session, leaving it running in the background.
 
 ## Uninstalling
 
@@ -114,7 +131,9 @@ This will show you if the service is running and its exit code. You can also che
 launchctl unload ~/Library/LaunchAgents/com.groundlight.start_coffee.plist
 ``` 
 
-## Secrets
+## Pre-requisites
+
+### Secrets file
 
 You need to put your GROUNDLIGHT_API_TOKEN and other secrets in the `set-environment` script like
 
@@ -124,12 +143,11 @@ export SLACK_URL='https://hooks.slack.com/services/secret/secret/secret'
 export GROUNDLIGHT_API_TOKEN='api_2CMtsYbMSEzsecret'
 ```
 
-
-## Installing `tmux` on macOS
+### Installing `tmux` on macOS
 
 To install `tmux` on your macOS system, we'll use Homebrew, a popular package manager for macOS. If you don't have Homebrew installed, follow the steps below.
 
-### 1. Install Homebrew
+#### 1. Install Homebrew
 
 Open your terminal and paste the following command:
 
@@ -139,7 +157,7 @@ Open your terminal and paste the following command:
 
 This will download and install Homebrew on your system.
 
-### 2. Update Homebrew and check its status
+#### 2. Update Homebrew and check its status
 
 Run the following commands to update Homebrew and ensure it's ready to install packages:
 
@@ -148,7 +166,7 @@ brew update
 brew doctor
 ```
 
-### 3. Install tmux
+#### 3. Install tmux
 
 Finally, use Homebrew to install `tmux` with the following command:
 
