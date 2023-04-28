@@ -194,7 +194,7 @@ def find_or_create_detector(desired_detectors: dict) -> dict:
 
 # set a list of desired detectors
 desired_detectors = {
-    "coffee_present": "are coffee grounds in the round filter area (not just residual dirt)",
+    "coffee_filter": "Is the round flat coffee filter full of grounds?",
 }
 
 detectors = find_or_create_detector(desired_detectors)
@@ -216,7 +216,7 @@ while True:
         continue
 
     result = confident_image_query(
-        detectors["coffee_present"].id,
+        detectors["coffee_filter"].id,
         img,
         threshold=0.75,
         timeout=90,
