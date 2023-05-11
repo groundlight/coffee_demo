@@ -4,6 +4,7 @@ Groundlight demo app to trigger a notification when the coffee machine is not ri
 set GROUNDLIGHT_API_TOKEN to your API token in the environment
 """
 
+import numpy as np
 import io
 import json
 import os
@@ -101,6 +102,10 @@ def get_rtsp_image(
             # Crop the frame
             print(f"Original image size: {frame.shape[0]}x{frame.shape[1]}")
             if x1 + x2 + y1 + y2 > 0:
+                frame_yuv = cv2.cvtColor(frame, cv2.COLOR_BGR2YUV)
+                frame_yuv[:,:,0] = cv2.equalizeHist(frame_yuv[:,:,0])
+                frame = cv2.cvtColor(frame_yuv, cv2.COLOR_YUV2BGR)
+
                 frame = frame[y1:y2, x1:x2]
                 print(f"Post-crop image size: {frame.shape[0]}x{frame.shape[1]}")
             else:
