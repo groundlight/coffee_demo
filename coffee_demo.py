@@ -93,15 +93,20 @@ def post_slack_message(msg: str):
 
 
 def get_rtsp_image(
-    rtsp_url: str, x1: int = 0, y1: int = 0, x2: int = 0, y2: int = 0
+    rtsp_url: str, x1: int = 0, y1: int = 0, x2: int = 0, y2: int = 0, hist_eq: bool = False
 ) -> Optional[io.BytesIO]:
     """Fetches an image from an RTSP stream, crops it, compresses as JPEG,
-    and returns it as a BytesIO object"""
+    and returns it as a BytesIO object. Can perform histogram equalization for overexposed images"""
     cap = cv2.VideoCapture(rtsp_url)
 
     try:
         if cap.isOpened():
             ret, frame = cap.read()
+            # Perform histogram equalization
+            if hist_eq:
+                frame_yuv = cv2.cvtColor(frame, cv2.COLOR_BGR2YUV)
+                frame_yuv[:, :, 0] = cv2.equalizeHist(frame_yuv[:, :, 0])
+                frame = cv2.cvtColor(frame_yuv, cv2.COLOR_YUV2BGR)
             # Crop the frame
             print(f"Original image size: {frame.shape[0]}x{frame.shape[1]}")
             if x1 + x2 + y1 + y2 > 0:
