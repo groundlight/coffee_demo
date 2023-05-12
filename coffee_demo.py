@@ -16,6 +16,7 @@ from groundlight import Groundlight
 from imgcat import imgcat
 import cv2
 import requests
+from gtts import gTTS
 
 gl = Groundlight()  # API key should be in environment variable
 rtsp_url = os.environ.get("RTSP_URL")
@@ -23,6 +24,9 @@ slack_url = os.environ.get("SLACK_URL")
 
 delay_between_checks = 60  # seconds
 num_checks_before_notification = 3
+audio_line = "The coffee machine needs rinsing"
+audio_file = audio_line.replace(" ", "_")
+gTTS(audio_line).save(f"audio/{audio_file}.mp3")
 
 
 if not rtsp_url:
@@ -225,7 +229,7 @@ while True:
         count_coffee_present += 1
         print(f"Coffee present ({count_coffee_present} times in a row)")
         if count_coffee_present >= num_checks_before_notification:
-            play_sound("audio/coffee_maker_needs_rinsing.mp3")
+            play_sound(f"audio/{audio_file}.mp3")
             post_status(f"Coffee maker needs rinsing!")
     else:
         count_coffee_present = 0
