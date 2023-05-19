@@ -19,6 +19,7 @@ import requests
 from gtts import gTTS
 
 gl = Groundlight()  # API key should be in environment variable
+desired_detector = gl.get_or_create_detector(name="coffee_present", query="are coffee grounds in the round filter area (not just residual dirt)")
 rtsp_url = os.environ.get("RTSP_URL")
 slack_url = os.environ.get("SLACK_URL")
 
@@ -160,6 +161,7 @@ def confident_image_query(detector, image, threshold=0.5, timeout=10) -> Optiona
         return None
 
     elapsed = time.time() - start_time
+    print(iq)
 
     if iq.result.confidence is None:
         print(
@@ -177,47 +179,10 @@ def confident_image_query(detector, image, threshold=0.5, timeout=10) -> Optiona
     return map_result(iq, threshold)
 
 
-def find_or_create_detector(desired_detectors: dict) -> dict:
-    """finds or creates the desired detectors and returns them in a dict,
-    keyed by detector name"""
-    detectors = {}
-
-    # find the desired detectors if they exist
-    available_detectors = gl.list_detectors()
-
-    for det in available_detectors.results:
-        if det.name in desired_detectors:
-            detectors[det.name] = det
-            print(f"found detector for : {det.name}")
-
-    # create new detectors as necessary
-    for det_name in desired_detectors.keys():
-        if det_name not in detectors:
-            detectors[det_name] = gl.create_detector(
-                det_name, desired_detectors[det_name]
-            )
-            print(f"created detector for : {det_name}")
-
-    return detectors
-
-
-# set a list of desired detectors
-desired_detectors = {
-    "coffee_present": "are coffee grounds in the round filter area (not just residual dirt)",
-}
-
-detectors = find_or_create_detector(desired_detectors)
-
-print(f"configured {len(detectors)} detectors : ")
-for det in detectors.values():
-    print(f"{det.id} : {det.name} / {det.query}")
-    print(det)
-
 count_coffee_present = 0
-
 while True:
     try:
-        img = get_rtsp_image(rtsp_url, x1=1200, x2=1800, y1=400, y2=1000)
+        img = get_rtsp_image(rtsp_url, x1=2000, x2=2500, y1=900, y2=1600)
     except Exception:
         traceback.print_exc()
         print("Failed to capture image")
@@ -225,11 +190,12 @@ while True:
         continue
 
     result = confident_image_query(
-        detectors["coffee_present"].id,
+        desired_detector,
         img,
         threshold=0.75,
         timeout=90,
     )
+    print(result)
     if result == "YES":
         count_coffee_present += 1
         print(f"Coffee present ({count_coffee_present} times in a row)")
