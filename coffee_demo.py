@@ -102,10 +102,14 @@ def get_rtsp_image(
             # Crop the frame
             print(f"Original image size: {frame.shape[0]}x{frame.shape[1]}")
             if x1 + x2 + y1 + y2 > 0:
+                #perform image adjustments
+                #histogram normalization
                 frame_yuv = cv2.cvtColor(frame, cv2.COLOR_BGR2YUV)
                 frame_yuv[:,:,0] = cv2.equalizeHist(frame_yuv[:,:,0])
                 frame = cv2.cvtColor(frame_yuv, cv2.COLOR_YUV2BGR)
-
+                #contrast adjustment
+                frame = cv2.convertScaleAbs(frame, alpha=1.2, beta=20)
+                #crop
                 frame = frame[y1:y2, x1:x2]
                 print(f"Post-crop image size: {frame.shape[0]}x{frame.shape[1]}")
             else:
