@@ -7,7 +7,7 @@ This demonstrates how to use the Groundlight Python SDK to:
 - Fetch images from an RTSP camera
 - Run inference on the images
 - Send alerts to a Slack channel
-- Play audio alerts 
+- Play audio alerts
 
 ![Needs rinsing](./static/coffee-present.png)
 ![Already rinsed](./static/coffee-not-present.png)
@@ -17,7 +17,7 @@ This demonstrates how to use the Groundlight Python SDK to:
 1. Install poetry.
 
 ``` shell
-curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python -
+curl -sSL https://install.python-poetry.org | python3 -
 ```
 
 1. Install dependencies.
