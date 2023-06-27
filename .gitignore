@@ -1,3 +1,5 @@
+*.swp
 set_api_key.sh
 set-environment
 poetry.lock
+verify_token.txt

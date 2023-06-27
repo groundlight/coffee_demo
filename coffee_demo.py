@@ -217,7 +217,7 @@ count_coffee_present = 0
 
 while True:
     try:
-        img = get_rtsp_image(rtsp_url, x1=2000, x2=2500, y1=900, y2=1600)
+        img = get_rtsp_image(rtsp_url, x1=500, x2=1500, y1=700, y2=1300)
     except Exception:
         traceback.print_exc()
         print("Failed to capture image")
